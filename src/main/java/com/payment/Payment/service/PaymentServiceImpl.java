@@ -7,9 +7,11 @@ import com.payment.Payment.dto.response.PaymentResponse;
 import com.payment.Payment.entity.Payment;
 import com.payment.Payment.entity.PaymentStatus;
 import com.payment.Payment.exception.CardValidationException;
+import com.payment.Payment.exception.OrderNotFoundException;
 import com.payment.Payment.exception.PaymentNotFoundException;
 import com.payment.Payment.exception.PaymentProcessingException;
 import com.payment.Payment.exception.RefundException;
+import com.payment.Payment.exception.ServiceCommunicationException;
 import com.payment.Payment.repository.PaymentRepository;
 import com.payment.Payment.util.PaymentMapper;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,14 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResponse processPayment(String userId, String jwtToken, PaymentRequest request) {
         log.info("Processing payment for user {} on order {}", userId, request.getOrderId());
+
+        // Verify order exists in Order service
+        try {
+            orderServiceClient.getOrder(request.getOrderId(), jwtToken);
+        } catch (ServiceCommunicationException e) {
+            log.error("Order {} not found or order service unavailable: {}", request.getOrderId(), e.getMessage());
+            throw new OrderNotFoundException(request.getOrderId());
+        }
 
         // Check if payment already exists for this order
         paymentRepository.findByOrderId(request.getOrderId())
